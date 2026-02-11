@@ -1,14 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
 from boto3.dynamodb.conditions import Key
 from app import auth
-from database.db import cards_table, accounts_table, db_client
+from ..database.db import cards_table, accounts_table, db_client
 from schemas import AccountCreateIn, AccountCreateOut, CardOut, AccountOut
 from utils import iso_utc_now, new_account_id, new_card_id, generate_iban, generate_pan, mask_pan
 from decimal import Decimal
+from ..auth import get_curr_user
 
 router = APIRouter()
 
-router.post("/accounts")
+@router.post("/accounts")
 def create_account(body: dict, user = Depends(auth.get_curr_user)):
     user_id = user["user_id"]
     now = iso_utc_now()
@@ -24,9 +25,10 @@ def create_account(body: dict, user = Depends(auth.get_curr_user)):
     accounts_item = {
        "account_id": account_id,
        "user_id": user_id,
+       "owner_name": body.get("owner_name", user_id),
        "iban": iban,
        "status": "ACTIVE",
-       "name": body.name or "Main",
+       "name": body.get("name", "Main"),
        "created_at": now
     }
 
@@ -82,9 +84,9 @@ def list_accounts(user = Depends(auth.get_curr_user)):
     return resp.get("Items", [])
 
 @router.get("/accounts/{account_id}")
-def get_account(accound_id: str, user = Depends(auth.get_curr_user)):
+def get_account(account_id: str, user = Depends(auth.get_curr_user)):
     user_id = user["user_id"]
-    resp = accounts_table.get_item(Key = {"account_id": accound_id})
+    resp = accounts_table.get_item(Key = {"account_id": account_id})
     item = resp.get("Item")
     if not item:
         raise HTTPException(status_code=404, detail="Account not found")
@@ -103,7 +105,7 @@ def list_cards_for_acc(account_id: str, user = Depends(auth.get_curr_user)):
     
     resp = cards_table.query(
         IndexName = "account_id-index" ,
-        KeyConditionExpression = Key("accound_id").eq(account_id),
+        KeyConditionExpression = Key("account_id").eq(account_id),
         ScanIndexForward = False
     )
     items = resp.get("Items", [])
@@ -112,3 +114,29 @@ def list_cards_for_acc(account_id: str, user = Depends(auth.get_curr_user)):
         it.pop("pan", None)
     
     return items
+
+@router.get("/accounts/by-iban/{iban}")
+def get_account_by_iban(iban: str, user = Depends(get_curr_user)):
+    iban_normal = iban.strip().upper()
+
+    try:
+        result = accounts_table.query(
+            IndexName = "iban-index",
+            KeyConditionExpression = Key("iban").eq(iban_normal),
+            Limit = 1
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to query iban-index: {e}")
+    
+    items =  result.get("Items", [])
+    if not items:
+        raise HTTPException(status_code=404, detail="IBAN not found")
+    
+    acc = items[0]
+
+    return {
+        "account_id": acc.get("account_id"),
+        "iban": acc.get("iban"),
+        "owner_name": acc.get("owner_name") or acc.get("full_name") or acc.get("user_id"),
+        "status": acc.get("status", "UNKNOWN")
+    }
