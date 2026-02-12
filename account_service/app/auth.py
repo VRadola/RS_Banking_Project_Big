@@ -1,6 +1,6 @@
 from fastapi import Header, HTTPException
 from jose import jwt, JWTError
-from config import JWT_ALG, JWT_SECRET
+from .config import JWT_ALG, JWT_SECRET
 
 def get_curr_user(authorization: str = Header(default="")) -> dict:
     if not authorization.startswith("Bearer "):
@@ -8,7 +8,7 @@ def get_curr_user(authorization: str = Header(default="")) -> dict:
     
     token = authorization.removeprefix("Bearer ").strip()
     try:
-        decode = jwt.decode(token, JWT_SECRET, algorithms={JWT_ALG})
+        decode = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
     
