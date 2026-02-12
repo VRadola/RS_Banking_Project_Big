@@ -12,4 +12,4 @@ class CreatePaymentIn(BaseModel):
 class PaymentOut(BaseModel):
     payment_id: str
     status: str
-    ledger_tx_id: str | None = None
+    transaction_tx_id: str | None = None
