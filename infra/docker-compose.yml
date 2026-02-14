@@ -1,0 +1,100 @@
+services:
+  gateway:
+    image: nginx:alpine
+    container_name: gateway
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - auth_service_1
+      - auth_service_2
+      - account_service_1
+      - account_service_2
+      - transaction_service_1
+      - transaction_service_2
+      - payment_service_1
+      - payment_service_2
+    networks: [banknet]
+  
+  auth_service_1:
+    build: ../auth_service
+    container_name: auth_service_1
+    env_file: ../auth_service/.env
+    environment:
+      - PORT=8000
+    expose: ["8000"]
+    networks: [banknet]
+  
+  auth_service_2:
+    build: ../auth_service
+    container_name: auth_service_2
+    env_file: ../auth_service/.env
+    environment:
+      - PORT=8000
+    expose: ["8000"]
+    networks: [banknet]
+
+  account_service_1:
+    build: ../account_service
+    container_name: account_service_1
+    env_file: ../account_service/.env
+    environment:
+      - PORT=8000
+    expose: ["8000"]
+    networks: [banknet]
+
+  account_service_2:
+    build: ../account_service
+    container_name: account_service_2
+    env_file: ../account_service/.env
+    environment:
+      - PORT=8000
+    expose: ["8000"]
+    networks: [banknet]
+
+  transaction_service_1:
+    build: ../transaction_service
+    container_name: transaction_service_1
+    env_file: ../transaction_service/.env
+    environment:
+      - PORT=8000
+      - ACCOUNT_BASE_URL=http://gateway
+    expose: ["8000"]
+    networks: [banknet]
+
+  transaction_service_2:
+    build: ../transaction_service
+    container_name: transaction_service_2
+    env_file: ../transaction_service/.env
+    environment:
+      - PORT=8000
+      - ACCOUNT_BASE_URL=http://gateway
+    expose: ["8000"]
+    networks: [banknet]
+
+  payment_service_1:
+    build: ../payment_service
+    container_name: payment_service_1
+    env_file: ../payment_service/.env
+    environment:
+      - PORT=8000
+      - ACCOUNT_BASE_URL=http://gateway
+      - TRANSACTION_BASE_URL=http://gateway
+    expose: ["8000"]
+    networks: [banknet]
+
+  payment_service_2:
+    build: ../payment_service
+    container_name: payment_service_2
+    env_file: ../payment_service/.env
+    environment:
+      - PORT=8000
+      - ACCOUNT_BASE_URL=http://gateway
+      - TRANSACTION_BASE_URL=http://gateway
+    expose: ["8000"]
+    networks: [banknet]
+
+networks:
+  banknet:
+    driver: bridge
